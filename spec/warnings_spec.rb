@@ -1,6 +1,7 @@
 require 'spec_helper'
 
 class SimpleModel < ActiveRecord::Base
+
   warnings do
     validates_presence_of :name
     validates_uniqueness_of :name
@@ -42,7 +43,7 @@ describe SimpleModel do
     subject { SimpleModel.create! }
 
     it 'has warnings on name' do
-      subject.warnings.on(:name).should == "can't be blank"
+      subject.warnings.messages[:name].should include("can't be blank")
     end
   end
 
@@ -50,7 +51,7 @@ describe SimpleModel do
     subject { SimpleModel.create!(:value => '12345') }
 
     it 'has warnings on value' do
-      subject.warnings.on(:value).should == 'is invalid'
+      subject.warnings.messages[:value].should include('is invalid')
     end
   end
 
@@ -58,7 +59,7 @@ describe SimpleModel do
     subject { SimpleModel.create!(:value2 => 'abcd') }
 
     it 'has warnings on value2' do
-      subject.warnings.on(:value2).should == 'is not a number'
+      subject.warnings.messages[:value2].should include('is not a number')
     end
   end
 
@@ -72,7 +73,7 @@ describe SimpleModel do
     end
 
     it 'has warnings on name' do
-      subject.warnings.on(:name).should == 'has already been taken'
+      subject.warnings.messages[:name].should include('has already been taken')
     end
   end
 end

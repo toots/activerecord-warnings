@@ -8,7 +8,7 @@ module ActiveRecord #:nodoc:
       # The warnings that are set on this record, equivalent to normal ActiveRecord errors but does not prevent
       # the record from saving.
       def warnings
-        @warnings ||= ActiveRecord::Errors.new(self)
+        @warnings ||= ActiveModel::Errors.new(self)
       end
 
       # Does this record have warnings?
@@ -22,9 +22,7 @@ module ActiveRecord #:nodoc:
         include InstanceMethods
       end
       base.singleton_class.class_eval do
-        ::ActiveRecord::Validations::VALIDATIONS.each do |validation|
-          alias_method(:"#{validation}_for_errors", validation)
-        end
+        alias_method(:validate_for_errors, :validate)
       end
     end
 
@@ -58,20 +56,25 @@ module ActiveRecord #:nodoc:
 
     def switch_validations(context) #:nodoc:
       singleton_class.class_eval do
-        ::ActiveRecord::Validations::VALIDATIONS.each do |validation|
-          alias_method(validation, :"#{validation}_for_#{context}")
-        end
+        alias_method(:validate, :"validate_for_#{context}")
       end
     end
     private :switch_validations
 
-    ::ActiveRecord::Validations::VALIDATIONS.each do |validation|
-      line = __LINE__ + 1
-      class_eval(%Q{
-        def #{validation}_for_warnings(*args, &block)
-          #{validation}_for_errors(*args) { |record| yield(WarningProxy.new(record)) }
+    def validate_for_warnings(*args, &block)
+      options = args.extract_options!
+      args = args.map do |klass|
+        klass = klass.clone
+        klass.class_eval do
+          alias_method(:validate_proxy, :validate)
+          def validate(record)
+            validate_proxy(WarningProxy.new(record))
+          end
         end
-      }, __FILE__, line)
+        klass
+      end
+      args << options
+      validate_for_errors(*args, &block)
     end
   end
 end

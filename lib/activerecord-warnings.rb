@@ -12,8 +12,15 @@ module ActiveRecord #:nodoc:
       end
 
       # Does this record have warnings?
-      def warnings?
+      def warnings?(context = nil)
+        valid_with_warnings?(context)
         not @warnings.empty?
+      end
+
+      # Wrapper for valid? to also clear warnings.
+      def valid_with_warnings?(context = nil)
+        warnings.clear
+        valid_without_warnings?(context = nil)
       end
     end
 
@@ -24,6 +31,9 @@ module ActiveRecord #:nodoc:
       base.singleton_class.class_eval do
         alias_method(:validate_for_errors, :validate)
       end
+       
+      base.send(:alias_method, :valid_without_warnings?, :valid?)
+      base.send(:alias_method, :valid?,                  :valid_with_warnings?)
     end
 
     # Wraps instances of ActiveRecord::Base so that the `errors` method actually uses the warnings.
@@ -74,7 +84,14 @@ module ActiveRecord #:nodoc:
         klass
       end
       args << options
-      validate_for_errors(*args, &block)
+
+      if block_given?
+        validate_for_errors(*args) do
+          WarningProxy.new(self).instance_eval(&block)
+        end
+      else
+        validate_for_errors(*args)
+      end
     end
   end
 end
